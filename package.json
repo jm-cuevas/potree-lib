@@ -1,0 +1,57 @@
+{
+  "name": "potree-lib",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Headless, modern npm port of the Potree point cloud viewer engine (viewer, loaders, materials, navigation, tools, modules) built on top of three.js.",
+  "license": "BSD-2-Clause",
+  "author": "Juan Cuevas <juan.m.cuevas@outlook.com>",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./loaders": {
+      "types": "./dist/loaders/index.d.ts",
+      "import": "./dist/loaders/index.js"
+    },
+    "./navigation": {
+      "types": "./dist/navigation/index.d.ts",
+      "import": "./dist/navigation/index.js"
+    },
+    "./tools": {
+      "types": "./dist/tools/index.d.ts",
+      "import": "./dist/tools/index.js"
+    },
+    "./modules": {
+      "types": "./dist/modules/index.d.ts",
+      "import": "./dist/modules/index.js"
+    },
+    "./exporters": {
+      "types": "./dist/exporters/index.d.ts",
+      "import": "./dist/exporters/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite examples",
+    "build": "vite build && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "three": ">=0.160.0"
+  },
+  "dependencies": {
+    "proj4": "^2.11.0"
+  },
+  "devDependencies": {
+    "three": "^0.169.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  }
+}
