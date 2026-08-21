@@ -1,2 +1,5 @@
 .context
 .memory
+node_modules
+dist
+*.log
