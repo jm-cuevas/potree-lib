@@ -24,6 +24,40 @@ export function computeTransformedBoundingBox(box, transform){
 }
 
 /**
+ * Octree child bounding box, given the parent box and a child index in the
+ * usual Potree bit-packed order (bit 0: z-half, bit 1: y-half, bit 2: x-half).
+ *
+ * @param {THREE.Box3} aabb
+ * @param {number} index
+ * @returns {THREE.Box3}
+ */
+export function createChildAABB(aabb, index){
+	let min = aabb.min.clone();
+	let max = aabb.max.clone();
+	let size = new THREE.Vector3().subVectors(max, min);
+
+	if ((index & 0b0001) > 0) {
+		min.z += size.z / 2;
+	} else {
+		max.z -= size.z / 2;
+	}
+
+	if ((index & 0b0010) > 0) {
+		min.y += size.y / 2;
+	} else {
+		max.y -= size.y / 2;
+	}
+
+	if ((index & 0b0100) > 0) {
+		min.x += size.x / 2;
+	} else {
+		max.x -= size.x / 2;
+	}
+
+	return new THREE.Box3(min, max);
+}
+
+/**
  * @param {{x: number, y: number}} mouse - mouse position in element/canvas pixels
  * @param {THREE.Camera} camera
  * @param {number} width - element/canvas width in pixels

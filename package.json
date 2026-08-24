@@ -17,6 +17,10 @@
       "types": "./dist/loaders/index.d.ts",
       "import": "./dist/loaders/index.js"
     },
+    "./materials": {
+      "types": "./dist/materials/index.d.ts",
+      "import": "./dist/materials/index.js"
+    },
     "./navigation": {
       "types": "./dist/navigation/index.d.ts",
       "import": "./dist/navigation/index.js"
@@ -47,8 +51,13 @@
     "three": ">=0.169.0"
   },
   "dependencies": {
+    "@ngageoint/geopackage": "^4.2.9",
     "@tweenjs/tween.js": "^25.0.0",
-    "proj4": "^2.11.0"
+    "copc": "^0.0.9",
+    "laz-perf": "^0.0.7",
+    "proj4": "^2.11.0",
+    "rtree-sql.js": "^1.7.0",
+    "shapefile": "^0.6.6"
   },
   "devDependencies": {
     "@types/three": "^0.169.0",

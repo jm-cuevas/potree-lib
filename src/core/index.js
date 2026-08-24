@@ -5,6 +5,8 @@ export {NavigationCube} from "./NavigationCube.js";
 export {PointCloudTree, PointCloudTreeNode} from "./PointCloudTree.js";
 export {Renderer} from "./renderers/Renderer.js";
 export {PotreeRenderer} from "./renderers/PotreeRenderer.js";
+export {EDLRenderer} from "./renderers/EDLRenderer.js";
+export {HQSplatRenderer} from "./renderers/HQSplatRenderer.js";
 export {Features} from "./Features.js";
 export {EventDispatcher} from "./EventDispatcher.js";
 export {Enum, EnumItem} from "./Enum.js";
