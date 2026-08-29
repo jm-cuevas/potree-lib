@@ -86,8 +86,13 @@ export class PotreeRenderer {
 
 		renderer.clearDepth();
 
+		// Transform gizmo overlay: `update()` binds it to the current
+		// `InputHandler` selection and sizes the handles; the `render()` call
+		// is what actually draws them (without it a selected volume / clip
+		// volume shows no move/scale/rotate handles). Mirrors `EDLRenderer`.
 		if(viewer.transformationTool){
 			viewer.transformationTool.update();
+			renderer.render(viewer.transformationTool.scene, camera);
 		}
 
 		viewer.dispatchEvent({type: "render.pass.perspective_overlay", viewer: viewer});

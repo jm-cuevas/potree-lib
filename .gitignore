@@ -2,4 +2,5 @@
 .memory
 node_modules
 dist
+scratchpad
 *.log

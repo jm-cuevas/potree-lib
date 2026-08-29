@@ -979,7 +979,7 @@ export class Renderer {
 			for(let uniformName of Object.keys(material.uniforms)){
 				let uniform = material.uniforms[uniformName];
 
-				if(uniform.type == "t"){
+				if(uniform.value instanceof THREE.Texture){
 					let texture = uniform.value;
 
 					if(!texture){
@@ -1163,10 +1163,15 @@ export class Renderer {
 			currentTextureBindingPoint++;
 
 			let matcapTexture = this.textures.get(material.matcapTexture);
-			shader.setUniform1i("matcapTextureUniform", currentTextureBindingPoint);
-			gl.activeTexture(gl.TEXTURE0 + currentTextureBindingPoint);
-			gl.bindTexture(matcapTexture.target, matcapTexture.id);
-			currentTextureBindingPoint++;
+			if(matcapTexture){
+				// matcapTexture is null when the material was constructed without
+				// a `resourcePath` (see PointCloudMaterial.generateMatcapTexture) -
+				// harmless unless the material's active attribute is "matcap".
+				shader.setUniform1i("matcapTextureUniform", currentTextureBindingPoint);
+				gl.activeTexture(gl.TEXTURE0 + currentTextureBindingPoint);
+				gl.bindTexture(matcapTexture.target, matcapTexture.id);
+				currentTextureBindingPoint++;
+			}
 
 			if(material.snapEnabled === true){
 				{

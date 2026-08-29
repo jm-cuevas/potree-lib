@@ -2,11 +2,41 @@
   "name": "potree-lib",
   "version": "0.1.0",
   "type": "module",
-  "description": "Headless, modern npm port of the Potree point cloud viewer engine (viewer, loaders, materials, navigation, tools, modules) built on top of three.js.",
+  "description": "Headless, modern npm port of the Potree point cloud viewer engine (viewer, loaders, materials, navigation, tools, modules, exporters) built on top of three.js.",
   "license": "BSD-2-Clause",
   "author": "Juan Cuevas <juan.m.cuevas@outlook.com>",
+  "homepage": "https://github.com/jm-cuevas/potree-lib#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jm-cuevas/potree-lib.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jm-cuevas/potree-lib/issues"
+  },
+  "keywords": [
+    "potree",
+    "point-cloud",
+    "pointcloud",
+    "three",
+    "threejs",
+    "webgl",
+    "lidar",
+    "las",
+    "laz",
+    "ept",
+    "copc",
+    "octree",
+    "3d",
+    "visualization",
+    "headless"
+  ],
+  "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md",
+    "README.md"
   ],
   "exports": {
     "./core": {
@@ -16,6 +46,10 @@
     "./loaders": {
       "types": "./dist/loaders/index.d.ts",
       "import": "./dist/loaders/index.js"
+    },
+    "./materials": {
+      "types": "./dist/materials/index.d.ts",
+      "import": "./dist/materials/index.js"
     },
     "./navigation": {
       "types": "./dist/navigation/index.d.ts",
@@ -36,19 +70,27 @@
     "./utils": {
       "types": "./dist/utils/index.d.ts",
       "import": "./dist/utils/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "dev": "vite examples",
     "build": "vite build && tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "peerDependencies": {
     "three": ">=0.169.0"
   },
   "dependencies": {
+    "@ngageoint/geopackage": "^4.2.9",
     "@tweenjs/tween.js": "^25.0.0",
-    "proj4": "^2.11.0"
+    "copc": "^0.0.9",
+    "laz-perf": "^0.0.7",
+    "proj4": "^2.11.0",
+    "rtree-sql.js": "^1.7.0",
+    "shapefile": "^0.6.6"
   },
   "devDependencies": {
     "@types/three": "^0.169.0",

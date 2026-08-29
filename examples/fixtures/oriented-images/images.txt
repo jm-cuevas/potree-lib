@@ -1,0 +1,4 @@
+# id x y z omega phi kappa
+photo_0.png 0 0 3 0 0 0
+photo_1.png 5 0 3 0 20 0
+photo_2.png 5 5 3 0 20 30

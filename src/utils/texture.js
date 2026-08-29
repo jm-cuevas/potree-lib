@@ -1,6 +1,37 @@
 import * as THREE from "three";
 
 /**
+ * Solid-color RGBA data texture, e.g. used as a placeholder before real
+ * per-frame data (LOD visibility, gradients, ...) is written into it.
+ *
+ * @param {number} width
+ * @param {number} height
+ * @param {THREE.Color} color
+ * @returns {THREE.DataTexture}
+ */
+export function generateDataTexture(width, height, color) {
+	let size = width * height;
+	let data = new Uint8Array(4 * size);
+
+	let r = Math.floor(color.r * 255);
+	let g = Math.floor(color.g * 255);
+	let b = Math.floor(color.b * 255);
+
+	for (let i = 0; i < size; i++) {
+		data[i * 4] = r;
+		data[i * 4 + 1] = g;
+		data[i * 4 + 2] = b;
+		data[i * 4 + 3] = 255;
+	}
+
+	let texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+	texture.needsUpdate = true;
+	texture.magFilter = THREE.NearestFilter;
+
+	return texture;
+}
+
+/**
  * Subtle noise/vignette texture used as the "gradient" background scene.
  *
  * @param {number} width
@@ -104,4 +135,134 @@ export function loadSkybox(path){
 	camera.parent = parent;
 
 	return {camera, scene, parent};
+}
+
+/**
+ * Renders an RGBA pixel buffer (as read back from a render target) into an
+ * `<img>` element, forcing alpha to 255.
+ *
+ * @param {ArrayLike<number>} pixels
+ * @param {number} width
+ * @param {number} height
+ * @returns {HTMLImageElement}
+ */
+export function pixelsArrayToImage(pixels, width, height){
+	let img = new Image();
+	img.src = pixelsArrayToDataUrl(pixels, width, height);
+
+	return img;
+}
+
+/**
+ * Renders an RGBA pixel buffer into a `data:` URL (PNG), forcing alpha to 255.
+ *
+ * @param {ArrayLike<number>} pixels
+ * @param {number} width
+ * @param {number} height
+ * @returns {string}
+ */
+export function pixelsArrayToDataUrl(pixels, width, height){
+	let canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+
+	let context = canvas.getContext("2d");
+
+	let copy = Uint8ClampedArray.from(pixels);
+	for(let i = 0; i < copy.length; i++){
+		copy[i * 4 + 3] = 255;
+	}
+
+	let imageData = context.createImageData(width, height);
+	imageData.data.set(copy);
+	context.putImageData(imageData, 0, 0);
+
+	return canvas.toDataURL();
+}
+
+/**
+ * Renders an RGBA pixel buffer into a `<canvas>`, flipped vertically (render
+ * targets are bottom-up, images are top-down).
+ *
+ * @param {ArrayLike<number>} pixels
+ * @param {number} width
+ * @param {number} height
+ * @returns {HTMLCanvasElement}
+ */
+export function pixelsArrayToCanvas(pixels, width, height){
+	let canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+
+	let context = canvas.getContext("2d");
+
+	let copy = Uint8ClampedArray.from(pixels);
+
+	// flip vertically
+	let bytesPerLine = width * 4;
+	for(let i = 0; i < Math.trunc(height / 2); i++){
+		let j = height - i - 1;
+
+		let lineI = copy.slice(i * bytesPerLine, i * bytesPerLine + bytesPerLine);
+		let lineJ = copy.slice(j * bytesPerLine, j * bytesPerLine + bytesPerLine);
+		copy.set(lineJ, i * bytesPerLine);
+		copy.set(lineI, j * bytesPerLine);
+	}
+
+	let imageData = context.createImageData(width, height);
+	imageData.data.set(copy);
+	context.putImageData(imageData, 0, 0);
+
+	return canvas;
+}
+
+/**
+ * Builds an `<svg>` element showing `scheme` as a vertical gradient swatch.
+ * Used by consuming UIs to render a gradient legend; kept here since it's the
+ * only non-DOM-free helper that pairs with `materials/Gradients.js`.
+ *
+ * @param {Array<[number, THREE.Color]>} scheme - list of [offset 0..1, color] stops
+ * @returns {SVGSVGElement}
+ */
+export function createSvgGradient(scheme){
+	const gradientId = `${Math.random()}_${Date.now()}`;
+
+	const svgn = "http://www.w3.org/2000/svg";
+	const svg = document.createElementNS(svgn, "svg");
+	svg.setAttributeNS(null, "width", "2em");
+	svg.setAttributeNS(null, "height", "3em");
+
+	{ // <defs>
+		const defs = document.createElementNS(svgn, "defs");
+
+		const linearGradient = document.createElementNS(svgn, "linearGradient");
+		linearGradient.setAttributeNS(null, "id", gradientId);
+		linearGradient.setAttributeNS(null, "gradientTransform", "rotate(90)");
+
+		for(let i = scheme.length - 1; i >= 0; i--){
+			const stopVal = scheme[i];
+			const percent = Math.round(100 - stopVal[0] * 100);
+			const [r, g, b] = stopVal[1].toArray().map(v => Math.round(v * 255));
+
+			const stop = document.createElementNS(svgn, "stop");
+			stop.setAttributeNS(null, "offset", `${percent}%`);
+			stop.setAttributeNS(null, "stop-color", `rgb(${r}, ${g}, ${b})`);
+
+			linearGradient.appendChild(stop);
+		}
+
+		defs.appendChild(linearGradient);
+		svg.appendChild(defs);
+	}
+
+	const rect = document.createElementNS(svgn, "rect");
+	rect.setAttributeNS(null, "width", "100%");
+	rect.setAttributeNS(null, "height", "100%");
+	rect.setAttributeNS(null, "fill", `url("#${gradientId}")`);
+	rect.setAttributeNS(null, "stroke", "black");
+	rect.setAttributeNS(null, "stroke-width", "0.1em");
+
+	svg.appendChild(rect);
+
+	return svg;
 }

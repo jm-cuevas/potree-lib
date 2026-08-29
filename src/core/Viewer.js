@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import * as TWEEN from "@tweenjs/tween.js";
+import {tweens} from "../utils/tweens.js";
 import {ClipTask, ClipMethod, CameraMode, LengthUnits, ElevationGradientRepeat} from "./defines.js";
 import {Renderer} from "./renderers/Renderer.js";
 import {PotreeRenderer} from "./renderers/PotreeRenderer.js";
+import {EDLRenderer} from "./renderers/EDLRenderer.js";
+import {HQSplatRenderer} from "./renderers/HQSplatRenderer.js";
 import {Scene} from "./Scene.js";
 import {NavigationCube} from "./NavigationCube.js";
 import {Features} from "./Features.js";
@@ -11,6 +14,7 @@ import {zoomTo} from "./camera-utils.js";
 import {ClassificationScheme} from "../materials/ClassificationScheme.js";
 import {loadSkybox} from "../utils/texture.js";
 import {getParameterByName} from "../utils/misc.js";
+import {updatePointClouds} from "../loaders/updateVisibility.js";
 
 import {InputHandler} from "../navigation/InputHandler.js";
 import {OrbitControls} from "../navigation/OrbitControls.js";
@@ -599,7 +603,7 @@ export class Viewer extends EventDispatcher{
 
 		{ // animate camera position
 			let pos = view.position.clone();
-			let tween = new TWEEN.Tween(pos).to(camera.position.clone(), animationDuration);
+			let tween = new TWEEN.Tween(pos, tweens).to(camera.position.clone(), animationDuration);
 			tween.easing(easing);
 
 			tween.onUpdate(() => {
@@ -611,7 +615,7 @@ export class Viewer extends EventDispatcher{
 
 		{ // animate camera target
 			let target = startTarget.clone();
-			let tween = new TWEEN.Tween(target).to(endTarget, animationDuration);
+			let tween = new TWEEN.Tween(target, tweens).to(endTarget, animationDuration);
 			tween.easing(easing);
 			tween.onUpdate(() => {
 				view.lookAt(target);
@@ -963,9 +967,10 @@ export class Viewer extends EventDispatcher{
 		}
 
 		if(!this.freeze){
-			// TODO(phase 2): replace with the ported octree LOD traversal
-			// (Potree_update_visibility.js) once loaders/PointCloudOctree land.
-			const result = {lowestSpacing: Infinity};
+			const result = updatePointClouds(visiblePointClouds, camera, this.renderer, {
+				pointBudget: this.pointBudget,
+				pointLoadLimit: this.pointLoadLimit,
+			});
 
 			const campos = camera.position;
 			let closestImage = Infinity;
@@ -1097,7 +1102,7 @@ export class Viewer extends EventDispatcher{
 			this.navigationCube.update(camera.rotation);
 		}
 
-		TWEEN.update(timestamp);
+		tweens.update(timestamp);
 
 		this.dispatchEvent({
 			type: 'update',
@@ -1111,14 +1116,28 @@ export class Viewer extends EventDispatcher{
 	}
 
 	getPRenderer(){
-		// TODO(phase 2): EDLRenderer/HQSplatRenderer are ported alongside
-		// materials, which they depend on - core only ships the default
-		// (non-EDL, non-HQ) point cloud render pipeline for now.
-		if(!this.potreeRenderer){
-			this.potreeRenderer = new PotreeRenderer(this);
-		}
+		if(this.useHQ){
+			if(!this.hqRenderer){
+				this.hqRenderer = new HQSplatRenderer(this);
+			}
+			this.hqRenderer.useEDL = this.useEDL;
 
-		return this.potreeRenderer;
+			return this.hqRenderer;
+		}else{
+			if(this.useEDL && Features.SHADER_EDL.isSupported()){
+				if(!this.edlRenderer){
+					this.edlRenderer = new EDLRenderer(this);
+				}
+
+				return this.edlRenderer;
+			}else{
+				if(!this.potreeRenderer){
+					this.potreeRenderer = new PotreeRenderer(this);
+				}
+
+				return this.potreeRenderer;
+			}
+		}
 	}
 
 	renderVR(){
