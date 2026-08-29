@@ -11,6 +11,12 @@
 // the part of a consuming app: it renders a small sphere for every annotation
 // (annotations are a headless data model with no built-in visual) and offers
 // clip-task / clip-method / camera-mode selectors.
+//
+// Phase 5 smoke test: the "Modules" group wires the three higher-level modules
+// - a Catmull-Rom camera fly-through (real, against the loaded cloud), plus a
+// 360° panorama set and an oriented-image set loaded from the small synthetic
+// fixtures under `examples/fixtures/` (run `python3 examples/fixtures/make-fixtures.py`
+// to regenerate). No real 360/oriented sample sets ship with Potree 1.8.
 import * as THREE from "three";
 import { Viewer } from "../src/core/index.js";
 import { loadPointCloud } from "../src/loaders/index.js";
@@ -25,6 +31,11 @@ import {
 	AnnotationTool,
 	SphereVolume,
 } from "../src/tools/index.js";
+import {
+	CameraAnimation,
+	Images360Loader,
+	OrientedImageLoader,
+} from "../src/modules/index.js";
 
 console.log("potree-lib dev harness", { three: THREE.REVISION });
 
@@ -59,6 +70,57 @@ viewer.profileTool.addEventListener("start_inserting_profile", logEvt("profile")
 viewer.clippingTool.addEventListener("clip_polygon_started", logEvt("clip"));
 viewer.clippingTool.addEventListener("clip_polygon_finished", logEvt("clip"));
 viewer.annotationTool.addEventListener("start_inserting_annotation", logEvt("annotation"));
+
+// --- consuming-app concern: on-canvas feedback while placing a clip polygon --
+// The headless `ClippingTool` dropped Potree's jQuery SVG overlay and instead
+// emits `clip_polygon_started` / `clip_polygon_vertex_added` /
+// `clip_polygon_vertex_moved` / `clip_polygon_finished` (all in screen pixels).
+// A real app draws whatever it wants from those — here, a dashed polyline plus
+// a dot per committed vertex, exactly like Potree's built-in overlay.
+const clipSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+// explicit width/height: an <svg> is a replaced element, so `inset:0` alone
+// won't stretch it — without this it stays 300x150 and the vertices fall
+// outside its viewport.
+clipSvg.setAttribute("style", "position:absolute;left:0;top:0;width:100%;height:100%;z-index:12;pointer-events:none;");
+clipSvg.innerHTML =
+	'<polyline fill="none" stroke="#000" stroke-width="4" stroke-dasharray="9,6" />' +
+	'<polyline fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="5,10" />';
+app.appendChild(clipSvg);
+const clipPolylines = clipSvg.querySelectorAll("polyline");
+let clipVerts = []; // committed [x,y] pixel pairs
+let clipTrailing = null; // rubber-banded pointer position
+function drawClipOverlay() {
+	const pts = [...clipVerts, clipTrailing].filter(Boolean).map(([x, y]) => `${x},${y}`).join(" ");
+	clipPolylines.forEach((p) => p.setAttribute("points", pts));
+	[...clipSvg.querySelectorAll("circle")].forEach((c) => c.remove());
+	for (const [x, y] of clipVerts) {
+		const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+		c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", "5");
+		c.setAttribute("fill", "#fff"); c.setAttribute("stroke", "#000"); c.setAttribute("stroke-width", "2");
+		clipSvg.appendChild(c);
+	}
+}
+viewer.clippingTool.addEventListener("clip_polygon_started", () => {
+	clipVerts = []; clipTrailing = null; drawClipOverlay();
+	setHint("Clip polygon: left-click to add vertices, right-click to finish");
+});
+viewer.clippingTool.addEventListener("clip_polygon_vertex_added", (e) => {
+	clipVerts.push([e.x, e.y]); drawClipOverlay();
+});
+viewer.clippingTool.addEventListener("clip_polygon_vertex_moved", (e) => {
+	clipTrailing = [e.x, e.y]; drawClipOverlay();
+});
+viewer.clippingTool.addEventListener("clip_polygon_finished", () => {
+	clipVerts = []; clipTrailing = null; drawClipOverlay();
+	setHint("");
+});
+
+// small transient hint line under the status text
+const hint = document.createElement("div");
+hint.style.cssText =
+	"position:absolute;left:0;top:2.4rem;z-index:10;color:#8fd0ff;font:12px monospace;padding:0 0.75rem;pointer-events:none;text-shadow:0 1px 2px black;white-space:pre;";
+app.appendChild(hint);
+function setHint(t) { hint.textContent = t; }
 
 // --- consuming-app concern: render a marker per annotation ------------------
 // The headless `Annotation` model carries only data + events; a real app draws
@@ -158,8 +220,15 @@ button("Profile", () => viewer.profileTool.startInsertion());
 button("Annotation", () => viewer.annotationTool.startInsertion({ title: "Annotation", description: "placed from the harness" }));
 
 // -- clipping --------------------------------------------------------------
+// Note: a placed Volume / Clip Volume is moved & resized the Potree way — LEFT-
+// CLICK it to select, then drag the on-object gizmo handles (spheres = scale,
+// bars = translate, rings = rotate). There are no per-corner drag markers like
+// measurements have. RIGHT-CLICK empty space to deselect.
 group("Clip");
-button("Clip Volume", () => viewer.volumeTool.startInsertion({ clip: true }));
+button("Clip Volume", () => {
+	setHint("Clip Volume: move the mouse over the cloud, click to drop; then click it to select and drag its gizmo handles");
+	return viewer.volumeTool.startInsertion({ clip: true });
+});
 button("Clip Polygon", () => viewer.clippingTool.startInsertion({ type: "polygon" }));
 button("Box Select (ortho)", () => {
 	// Potree's sidebar refuses this unless the active camera is orthographic
@@ -171,7 +240,11 @@ button("Box Select (ortho)", () => {
 });
 button("Remove all clip volumes", () => viewer.scene.removeAllClipVolumes());
 
-select("Clip task", [["NONE", ClipTask.NONE], ["HIGHLIGHT", ClipTask.HIGHLIGHT], ["SHOW_INSIDE", ClipTask.SHOW_INSIDE], ["SHOW_OUTSIDE", ClipTask.SHOW_OUTSIDE]], (v) => viewer.setClipTask(v)).value = String(ClipTask.HIGHLIGHT);
+// default to SHOW_INSIDE so a fresh clip volume / polygon visibly does
+// something (HIGHLIGHT only tints the clipped points, easy to miss)
+const clipTaskSel = select("Clip task", [["NONE", ClipTask.NONE], ["HIGHLIGHT", ClipTask.HIGHLIGHT], ["SHOW_INSIDE", ClipTask.SHOW_INSIDE], ["SHOW_OUTSIDE", ClipTask.SHOW_OUTSIDE]], (v) => viewer.setClipTask(v));
+clipTaskSel.value = String(ClipTask.SHOW_INSIDE);
+viewer.setClipTask(ClipTask.SHOW_INSIDE);
 select("Clip method", [["INSIDE_ANY", ClipMethod.INSIDE_ANY], ["INSIDE_ALL", ClipMethod.INSIDE_ALL]], (v) => viewer.setClipMethod(v));
 
 // -- misc ---------------------------------------------------------------
@@ -186,6 +259,109 @@ button("Dump scene", () => console.log("scene", {
 	polygonClipVolumes: viewer.scene.polygonClipVolumes,
 	annotations: viewer.scene.annotations.flatten(),
 }));
+
+// -- Phase 5 modules ------------------------------------------------------
+group("Modules");
+
+// The headless CameraAnimation dropped Potree's raw-SVG draggable path
+// handles. A consuming app re-adds its own — here, one draggable sphere per
+// control-point position (drag = unproject the pointer at the point's current
+// depth and write it back to `cp.position`; the spline updates next frame).
+let cameraAnimation = null;
+const camPathHandles = new THREE.Group();
+camPathHandles.name = "camera_path_handles";
+viewer.scene.scene.add(camPathHandles);
+
+function buildCamPathHandles() {
+	camPathHandles.clear();
+	if (!cameraAnimation) return;
+	for (const cp of cameraAnimation.controlPoints) {
+		const h = new THREE.Mesh(
+			new THREE.SphereGeometry(1, 20, 20),
+			new THREE.MeshBasicMaterial({ color: 0x00ff88, depthTest: false })
+		);
+		h.renderOrder = 1000;
+		h.userData.cp = cp;
+		h.addEventListener("drag", (e) => {
+			const cam = viewer.scene.getActiveCamera();
+			const size = viewer.renderer.getSize(new THREE.Vector2());
+			const ndc = new THREE.Vector3(
+				2 * (e.drag.end.x / size.width) - 1,
+				-2 * (e.drag.end.y / size.height) + 1,
+				cp.position.clone().project(cam).z
+			);
+			cp.position.copy(ndc.unproject(cam));
+			e.consume?.();
+		});
+		camPathHandles.add(h);
+	}
+}
+viewer.addEventListener("update", () => {
+	if (!cameraAnimation) return;
+	const cam = viewer.scene.getActiveCamera();
+	camPathHandles.children.forEach((h) => {
+		h.position.copy(h.userData.cp.position);
+		const s = Math.max(cam.position.distanceTo(h.position) / 60, 0.02);
+		h.scale.setScalar(s);
+	});
+});
+
+button("Camera path: create", () => {
+	if (cameraAnimation) {
+		cameraAnimation.dispose();
+		viewer.scene.removeCameraAnimation(cameraAnimation);
+		viewer.scene.scene.remove(cameraAnimation.node);
+	}
+	cameraAnimation = CameraAnimation.defaultFromView(viewer);
+	viewer.scene.addCameraAnimation(cameraAnimation);
+	cameraAnimation.addEventListener("controlpoint_added", logEvt("cameraAnimation"));
+	buildCamPathHandles();
+	setHint("Camera path: drag the green spheres to reshape it, then 'Camera path: play'");
+	return { controlPoints: cameraAnimation.controlPoints.length };
+});
+button("Camera path: play", () => {
+	if (!cameraAnimation) throw new Error("create a camera path first");
+	camPathHandles.visible = false;
+	cameraAnimation.setDuration(6);
+	cameraAnimation.play();
+	setTimeout(() => (camPathHandles.visible = true), 6500);
+});
+
+let images360 = null;
+button("Load 360° set (fixture)", async () => {
+	if (images360) {
+		images360.dispose();
+		viewer.scene.remove360Images(images360);
+		viewer.scene.scene.remove(images360.node);
+	}
+	images360 = await Images360Loader.load("/fixtures/images360", viewer);
+	viewer.scene.add360Images(images360);
+	images360.addEventListener("focus", logEvt("images360"));
+	images360.addEventListener("unfocus", logEvt("images360"));
+	console.log("360° set", images360, `${images360.images.length} images — click a sphere to focus`);
+	return { images: images360.images.length };
+});
+button("360°: unfocus", () => images360 && images360.unfocus());
+
+let orientedImages = null;
+button("Load oriented images (fixture)", async () => {
+	if (orientedImages) {
+		orientedImages.dispose();
+		viewer.scene.removeOrientedImages(orientedImages);
+		viewer.scene.scene.remove(orientedImages.node);
+	}
+	orientedImages = await OrientedImageLoader.load(
+		"/fixtures/oriented-images/camera.xml",
+		"/fixtures/oriented-images/images.txt",
+		viewer
+	);
+	viewer.scene.addOrientedImages(orientedImages);
+	orientedImages.controls.addEventListener("capture", logEvt("orientedImages"));
+	orientedImages.controls.addEventListener("release", logEvt("orientedImages"));
+	console.log("oriented images", orientedImages, "hover a plane to clip, click to fly into it");
+	return { images: orientedImages.images.length };
+});
+button("Oriented: back to 3D", () => orientedImages && orientedImages.controls.release());
 
 // --- load sample ---------------------------------------------------------
 const dataset = {
