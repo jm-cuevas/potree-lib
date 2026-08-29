@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import * as TWEEN from "@tweenjs/tween.js";
+import {tweens} from "../utils/tweens.js";
 import {ClipTask, ClipMethod, CameraMode, LengthUnits, ElevationGradientRepeat} from "./defines.js";
 import {Renderer} from "./renderers/Renderer.js";
 import {PotreeRenderer} from "./renderers/PotreeRenderer.js";
@@ -602,7 +603,7 @@ export class Viewer extends EventDispatcher{
 
 		{ // animate camera position
 			let pos = view.position.clone();
-			let tween = new TWEEN.Tween(pos).to(camera.position.clone(), animationDuration);
+			let tween = new TWEEN.Tween(pos, tweens).to(camera.position.clone(), animationDuration);
 			tween.easing(easing);
 
 			tween.onUpdate(() => {
@@ -614,7 +615,7 @@ export class Viewer extends EventDispatcher{
 
 		{ // animate camera target
 			let target = startTarget.clone();
-			let tween = new TWEEN.Tween(target).to(endTarget, animationDuration);
+			let tween = new TWEEN.Tween(target, tweens).to(endTarget, animationDuration);
 			tween.easing(easing);
 			tween.onUpdate(() => {
 				view.lookAt(target);
@@ -1101,7 +1102,7 @@ export class Viewer extends EventDispatcher{
 			this.navigationCube.update(camera.rotation);
 		}
 
-		TWEEN.update(timestamp);
+		tweens.update(timestamp);
 
 		this.dispatchEvent({
 			type: 'update',

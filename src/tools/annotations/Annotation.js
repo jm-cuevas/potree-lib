@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import * as TWEEN from "@tweenjs/tween.js";
+import {tweens} from "../../utils/tweens.js";
 import {EventDispatcher} from "../../core/EventDispatcher.js";
 import {moveTo} from "../../utils/camera.js";
 
@@ -244,7 +245,7 @@ export class Annotation extends EventDispatcher {
 			let endRadius = this.radius;
 
 			{ // animate camera position
-				let tween = new TWEEN.Tween(view.position).to(endPosition, animationDuration);
+				let tween = new TWEEN.Tween(view.position, tweens).to(endPosition, animationDuration);
 				tween.easing(easing);
 				tween.start();
 			}
@@ -252,7 +253,7 @@ export class Annotation extends EventDispatcher {
 			{ // animate radius
 				let t = {x: 0};
 
-				let tween = new TWEEN.Tween(t)
+				let tween = new TWEEN.Tween(t, tweens)
 					.to({x: 1}, animationDuration)
 					.onUpdate(function(){
 						view.radius = this.x * endRadius + (1 - this.x) * startRadius;

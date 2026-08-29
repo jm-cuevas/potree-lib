@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import * as TWEEN from "@tweenjs/tween.js";
+import {tweens} from "../utils/tweens.js";
 
 export class View{
 	constructor(){
@@ -141,7 +142,7 @@ export class View{
 			this.lookAt(endTarget);
 		}else{
 			let value = {x: 0};
-			let tween = new TWEEN.Tween(value).to({x: 1}, duration);
+			let tween = new TWEEN.Tween(value, tweens).to({x: 1}, duration);
 			tween.easing(easing);
 
 			tween.onUpdate(() => {

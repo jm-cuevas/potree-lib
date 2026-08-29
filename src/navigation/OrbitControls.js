@@ -7,6 +7,7 @@
 
 import * as THREE from "three";
 import * as TWEEN from "@tweenjs/tween.js";
+import {tweens} from "../utils/tweens.js";
 import {MOUSE} from "../core/defines.js";
 import {getMousePointCloudIntersection, mouseToRay} from "../utils/geometry.js";
 import {EventDispatcher} from "../core/EventDispatcher.js";
@@ -190,7 +191,7 @@ export class OrbitControls extends EventDispatcher{
 
 		{ // animate
 			let value = {x: 0};
-			let tween = new TWEEN.Tween(value).to({x: 1}, animationDuration);
+			let tween = new TWEEN.Tween(value, tweens).to({x: 1}, animationDuration);
 			tween.easing(easing);
 			this.tweens.push(tween);
 

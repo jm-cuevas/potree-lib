@@ -7,6 +7,10 @@ export class NormalizationMaterial extends THREE.RawShaderMaterial {
 	constructor(parameters = {}) {
 		super();
 
+		// Shaders are GLSL ES 3.00 (WebGL2): three.js prepends `#version 300 es`
+		// and compiles them as such. Source files carry no `#version` line.
+		this.glslVersion = THREE.GLSL3;
+
 		let uniforms = {
 			uDepthMap:  {value: null},
 			uWeightMap: {value: null},
