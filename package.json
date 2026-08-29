@@ -2,11 +2,41 @@
   "name": "potree-lib",
   "version": "0.1.0",
   "type": "module",
-  "description": "Headless, modern npm port of the Potree point cloud viewer engine (viewer, loaders, materials, navigation, tools, modules) built on top of three.js.",
+  "description": "Headless, modern npm port of the Potree point cloud viewer engine (viewer, loaders, materials, navigation, tools, modules, exporters) built on top of three.js.",
   "license": "BSD-2-Clause",
   "author": "Juan Cuevas <juan.m.cuevas@outlook.com>",
+  "homepage": "https://github.com/jm-cuevas/potree-lib#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jm-cuevas/potree-lib.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jm-cuevas/potree-lib/issues"
+  },
+  "keywords": [
+    "potree",
+    "point-cloud",
+    "pointcloud",
+    "three",
+    "threejs",
+    "webgl",
+    "lidar",
+    "las",
+    "laz",
+    "ept",
+    "copc",
+    "octree",
+    "3d",
+    "visualization",
+    "headless"
+  ],
+  "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md",
+    "README.md"
   ],
   "exports": {
     "./core": {
@@ -40,12 +70,15 @@
     "./utils": {
       "types": "./dist/utils/index.d.ts",
       "import": "./dist/utils/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "dev": "vite examples",
     "build": "vite build && tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "peerDependencies": {
     "three": ">=0.169.0"

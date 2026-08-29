@@ -264,6 +264,11 @@ export class Measure extends THREE.Object3D {
 	constructor () {
 		super();
 
+		// Duck-type flag (three.js `isMesh`-style convention, as already used
+		// for `isBoxVolume` / `isSphereVolume`) so `potree-lib/exporters` can
+		// filter measurement arrays without a static edge into `potree-lib/tools`.
+		this.isMeasure = true;
+
 		this.name = 'Measure_' + (measureCounter++);
 		this.points = [];
 		this._showDistances = true;

@@ -17,6 +17,12 @@
 // 360° panorama set and an oriented-image set loaded from the small synthetic
 // fixtures under `examples/fixtures/` (run `python3 examples/fixtures/make-fixtures.py`
 // to regenerate). No real 360/oriented sample sets ship with Potree 1.8.
+//
+// Phase 6 smoke test: the "Export" group feeds `viewer.scene.measurements` to
+// the GeoJSON / DXF exporters and a merged profile-query `Points` to the CSV /
+// LAS / DXF-of-points exporters, then downloads each result (a consuming-app
+// concern - the library only returns strings / ArrayBuffers). Pure exporter
+// logic is also covered headlessly in `test/exporters.test.mjs` (`npm test`).
 import * as THREE from "three";
 import { Viewer } from "../src/core/index.js";
 import { loadPointCloud } from "../src/loaders/index.js";
@@ -36,6 +42,14 @@ import {
 	Images360Loader,
 	OrientedImageLoader,
 } from "../src/modules/index.js";
+import { Points } from "../src/utils/index.js";
+import {
+	CSVExporter,
+	LASExporter,
+	DXFExporter,
+	DXFProfileExporter,
+	GeoJSONExporter,
+} from "../src/exporters/index.js";
 
 console.log("potree-lib dev harness", { three: THREE.REVISION });
 
@@ -258,6 +272,74 @@ button("Dump scene", () => console.log("scene", {
 	profiles: viewer.scene.profiles,
 	polygonClipVolumes: viewer.scene.polygonClipVolumes,
 	annotations: viewer.scene.annotations.flatten(),
+}));
+
+// -- Phase 6 exporters --------------------------------------------------
+// `potree-lib/exporters` returns strings / ArrayBuffers only; turning one into
+// a downloaded file is a consuming-app concern, shown here with a Blob + a
+// throwaway <a download>.
+group("Export");
+function download(filename, data, mime) {
+	const blob = new Blob([data], { type: mime });
+	const a = document.createElement("a");
+	a.href = URL.createObjectURL(blob);
+	a.download = filename;
+	a.click();
+	setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function requireMeasurements() {
+	const m = viewer.scene.measurements;
+	if (m.length === 0) throw new Error("place a Distance / Area / Point measurement first");
+	return m;
+}
+button("Measurements → GeoJSON", () => {
+	const text = GeoJSONExporter.toString(requireMeasurements());
+	download("measurements.geojson", text, "application/geo+json");
+	return text;
+});
+button("Measurements → DXF", () => {
+	const text = DXFExporter.toString(requireMeasurements());
+	download("measurements.dxf", text, "application/dxf");
+	return text;
+});
+// The profile exporters (CSV / LAS / DXF-of-points) consume a `Points`-shaped
+// object. Run a profile query against the loaded cloud, merge the per-segment
+// results, then hand that to each exporter.
+function withProfilePoints(then) {
+	const profile = viewer.scene.profiles[0];
+	const pc = viewer.scene.pointclouds[0];
+	if (!profile) throw new Error("place a Profile first (Measure ▸ Profile)");
+	if (!pc) throw new Error("no point cloud loaded");
+	setHint("profile query running…");
+
+	// `getPointsInProfile` streams `ProfileData` (per-segment `Points`) to
+	// `onProgress` as octree nodes load, and calls `onFinish` when the queue
+	// drains. Merge every segment's `Points` into one and hand it on.
+	const merged = new Points();
+	pc.getPointsInProfile(profile, null, {
+		onProgress: (e) => e.points.segments.forEach((s) => merged.add(s.points)),
+		onCancel: () => setHint("profile query cancelled"),
+		onFinish: () => {
+			setHint("");
+			if (merged.numPoints === 0) throw new Error("profile hit no points");
+			then(merged);
+		},
+	});
+}
+button("Profile → CSV", () => withProfilePoints((pts) => {
+	const text = CSVExporter.toString(pts);
+	download("profile.csv", text, "text/csv");
+	console.log("profile CSV", `${pts.numPoints} points`, text.slice(0, 200) + "…");
+}));
+button("Profile → LAS", () => withProfilePoints((pts) => {
+	const buf = LASExporter.toLAS(pts);
+	download("profile.las", buf, "application/octet-stream");
+	console.log("profile LAS", `${buf.byteLength} bytes`);
+}));
+button("Profile → DXF (points)", () => withProfilePoints((pts) => {
+	const text = DXFProfileExporter.toString(pts, /* flatten */ true);
+	download("profile.dxf", text, "application/dxf");
+	console.log("profile DXF", `${pts.numPoints} points`);
 }));
 
 // -- Phase 5 modules ------------------------------------------------------
